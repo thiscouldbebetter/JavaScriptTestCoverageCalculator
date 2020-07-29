@@ -1,0 +1,136 @@
+<html>
+<body>
+
+<div id="divUi">
+
+	<h3>JavaScript Test Coverage Calculator</h3>
+
+	<p>Enter JavaScript code for a system and the code that tests it below, then click the Calculate Coverage button.</p>
+
+	<button onclick="buttonLoadDemoCodeAndTests_Clicked();">Load Demo Code and Tests</button>
+	<br />
+
+	<label>Code to Calculate Coverage for:</label>
+	<button onclick="buttonCodeClear_Clicked();">Clear</button>
+	<input type="file" onchange="inputCodeFile_Changed(this);"></input>
+	<br />
+	<textarea id="textareaCodeToCalculateCoverageFor" cols="80" rows="8"></textarea>
+	<br />
+
+	<label>Code for Tests:</label>
+	<br />
+	<button onclick="buttonTestsClear_Clicked();">Clear</button>
+	<input type="file" onchange="inputTestFile_Changed(this);"></input>
+	<br />
+	<textarea id="textareaCodeForTests" cols="80" rows="8"></textarea>
+	<br />
+
+	<button onclick="buttonCoverageCalculate_Clicked();">Calculate Coverage</button>
+	<br />
+
+	<label>Test Coverage Results:</label>
+	<br />
+	<input id="textareaCoveredLinesCount"></input>
+	<br />
+
+	<div id="divCoverageByLine" style="border:1px solid;font-family:Courier;font-size:10px">
+		[After coverage is calculated, code will be listed here, with covered lines highlighted.]
+	</div>
+	<br />
+
+</div>
+
+<script type="text/javascript" src="TestCoverageCalculator.js"></script>
+<script type="text/javascript" src="DemoData.js"></script>
+
+<script type="text/javascript">
+
+// UI event handlers.
+
+function buttonCodeClear_Clicked()
+{
+	var d = document;
+	var textareaCode = d.getElementById("textareaCodeToCalculateCoverageFor");
+	textareaCode.value = "";
+}
+
+function buttonCoverageCalculate_Clicked()
+{
+	var d = document;
+	var textareaCode = d.getElementById("textareaCodeToCalculateCoverageFor");
+	var textareaTests = d.getElementById("textareaCodeForTests");
+	var textareaOutput = d.getElementById("textareaCoveredLinesCount");
+	var divCoverageByLine = d.getElementById("divCoverageByLine");
+
+	var codeToCalculateCoverageFor = textareaCode.value;
+	var codeForTests = textareaTests.value;
+
+	var testCoverageCalculator = new TestCoverageCalculator
+	(
+		codeToCalculateCoverageFor, codeForTests
+	);
+	testCoverageCalculator.calculateTestCoverage();
+	textareaOutput.value =
+		testCoverageCalculator.coverageToStringSummary();
+	divCoverageByLine.innerHTML =
+		testCoverageCalculator.coverageToStringByLine();
+}
+
+function buttonLoadDemoCodeAndTests_Clicked()
+{
+	var d = document;
+	var textareaCode = d.getElementById("textareaCodeToCalculateCoverageFor");
+	var textareaTests = d.getElementById("textareaCodeForTests");
+
+	var demoCode = DemoData.ClassMathCalculator;
+	textareaCode.value = demoCode;
+
+	var demoTests = DemoData.CodeForTests;
+	textareaTests.value = demoTests;
+}
+
+function buttonTestsClear_Clicked()
+{
+	var d = document;
+	var textareaTests = d.getElementById("textareaCodeForTests");
+	textareaTests.value = "";
+}
+
+function inputCodeFile_Changed(inputCodeFile)
+{
+	var file = inputCodeFile.files[0];
+	if (file != null)
+	{
+		var fileReader = new FileReader();
+		fileReader.onload = (event) =>
+		{
+			var fileContentsAsText = event.target.result;
+			var d = document;
+			var textareaCode = d.getElementById("textareaCodeToCalculateCoverageFor");
+			textareaCode.value = fileContentsAsText;
+		};
+		fileReader.readAsText(file);
+	}
+}
+
+function inputTestFile_Changed(inputCodeFile)
+{
+	var file = inputCodeFile.files[0];
+	if (file != null)
+	{
+		var fileReader = new FileReader();
+		fileReader.onload = (event) =>
+		{
+			var fileContentsAsText = event.target.result;
+			var d = document;
+			var textareaCodeForTests = d.getElementById("textareaCodeForTests");
+			textareaCodeForTests.value = fileContentsAsText;
+		};
+		fileReader.readAsText(file);
+	}
+}
+
+</script>
+
+</body>
+</html>
