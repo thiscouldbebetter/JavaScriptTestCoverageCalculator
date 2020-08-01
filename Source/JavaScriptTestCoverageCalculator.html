@@ -14,7 +14,7 @@
 	<button onclick="buttonCodeClear_Clicked();">Clear</button>
 	<input type="file" onchange="inputCodeFile_Changed(this);"></input>
 	<br />
-	<textarea id="textareaCodeToCalculateCoverageFor" cols="80" rows="8"></textarea>
+	<textarea id="textareaCode" cols="80" rows="8"></textarea>
 	<br />
 
 	<label>Code for Tests:</label>
@@ -22,18 +22,20 @@
 	<button onclick="buttonTestsClear_Clicked();">Clear</button>
 	<input type="file" onchange="inputTestFile_Changed(this);"></input>
 	<br />
-	<textarea id="textareaCodeForTests" cols="80" rows="8"></textarea>
+	<textarea id="textareaTests" cols="80" rows="8" onchange="textareaCode_Changed(this);"></textarea>
 	<br />
 
 	<button onclick="buttonCoverageCalculate_Clicked();">Calculate Coverage</button>
+	<label>Show Coverage by Line:</label>
+	<input id="checkboxShowCoverageByLine" type="checkbox" checked="true"/>
 	<br />
 
 	<label>Test Coverage Results:</label>
 	<br />
-	<input id="textareaCoveredLinesCount"></input>
+	<input id="textareaCoveredLinesCount" style="width:256px"></input>
 	<br />
 
-	<div id="divCoverageByLine" style="border:1px solid;font-family:Courier;font-size:10px">
+	<div id="divCoverageByLine" style="border:1px solid;font-family:Courier;font-size:10px;display:none">
 		[After coverage is calculated, code will be listed here, with covered lines highlighted.]
 	</div>
 	<br />
@@ -42,6 +44,14 @@
 
 <script type="text/javascript" src="TestCoverageCalculator.js"></script>
 <script type="text/javascript" src="DemoData.js"></script>
+<script type="text/javascript" src="FileHelper.js"></script>
+<script type="text/javascript" src="Session.js"></script>
+
+<script type="text/javascript" src="TarFileExplorer/Source/ByteStream.js"></script>
+<script type="text/javascript" src="TarFileExplorer/Source/TarFile.js"></script>
+<script type="text/javascript" src="TarFileExplorer/Source/TarFileEntry.js"></script>
+<script type="text/javascript" src="TarFileExplorer/Source/TarFileEntryHeader.js"></script>
+<script type="text/javascript" src="TarFileExplorer/Source/TarFileTypeFlag.js"></script>
 
 <script type="text/javascript">
 
@@ -50,49 +60,64 @@
 function buttonCodeClear_Clicked()
 {
 	var d = document;
-	var textareaCode = d.getElementById("textareaCodeToCalculateCoverageFor");
+	var textareaCode = d.getElementById("textareaCode");
 	textareaCode.value = "";
 }
 
 function buttonCoverageCalculate_Clicked()
 {
 	var d = document;
-	var textareaCode = d.getElementById("textareaCodeToCalculateCoverageFor");
-	var textareaTests = d.getElementById("textareaCodeForTests");
+	var textareaCode = d.getElementById("textareaCode");
+	var textareaTests = d.getElementById("textareaTests");
 	var textareaOutput = d.getElementById("textareaCoveredLinesCount");
+	var checkboxShowCoverageByLine = d.getElementById("checkboxShowCoverageByLine");
 	var divCoverageByLine = d.getElementById("divCoverageByLine");
 
 	var codeToCalculateCoverageFor = textareaCode.value;
 	var codeForTests = textareaTests.value;
 
-	var testCoverageCalculator = new TestCoverageCalculator
-	(
-		codeToCalculateCoverageFor, codeForTests
-	);
-	testCoverageCalculator.calculateTestCoverage();
-	textareaOutput.value =
-		testCoverageCalculator.coverageToStringSummary();
-	divCoverageByLine.innerHTML =
-		testCoverageCalculator.coverageToStringByLine();
+	if (codeToCalculateCoverageFor == "" || codeForTests == "")
+	{
+		alert("No code or tests specified!");
+	}
+	else
+	{
+		var testCoverageCalculator = Session.Instance.testCoverageCalculator;
+		testCoverageCalculator.calculateTestCoverage();
+		textareaOutput.value =
+			testCoverageCalculator.coverageToStringSummary();
+
+		var shouldShowCoverageByLine = (checkboxShowCoverageByLine.checked);
+		if (shouldShowCoverageByLine)
+		{
+			divCoverageByLine.innerHTML =
+				testCoverageCalculator.coverageToStringByLine();
+		}
+		divCoverageByLine.style.display = (shouldShowCoverageByLine ? "block" : "none");
+	}
 }
 
 function buttonLoadDemoCodeAndTests_Clicked()
 {
 	var d = document;
-	var textareaCode = d.getElementById("textareaCodeToCalculateCoverageFor");
-	var textareaTests = d.getElementById("textareaCodeForTests");
+	var textareaCode = d.getElementById("textareaCode");
+	var textareaTests = d.getElementById("textareaTests");
+
+	var calculator = Session.Instance.testCoverageCalculator;
 
 	var demoCode = DemoData.ClassMathCalculator;
 	textareaCode.value = demoCode;
+	calculator.codeToFindCoverageFor = demoCode;
 
 	var demoTests = DemoData.CodeForTests;
 	textareaTests.value = demoTests;
+	calculator.testCodeToRun = demoTests;
 }
 
 function buttonTestsClear_Clicked()
 {
 	var d = document;
-	var textareaTests = d.getElementById("textareaCodeForTests");
+	var textareaTests = d.getElementById("textareaTests");
 	textareaTests.value = "";
 }
 
@@ -102,14 +127,33 @@ function inputCodeFile_Changed(inputCodeFile)
 	if (file != null)
 	{
 		var fileReader = new FileReader();
-		fileReader.onload = (event) =>
+		var d = document;
+		var textareaCode = d.getElementById("textareaCode");
+		var calculator = Session.Instance.testCoverageCalculator;
+
+		var fileName = file.name;
+
+		if (fileName.endsWith(".tar") )
 		{
-			var fileContentsAsText = event.target.result;
-			var d = document;
-			var textareaCode = d.getElementById("textareaCodeToCalculateCoverageFor");
-			textareaCode.value = fileContentsAsText;
-		};
-		fileReader.readAsText(file);
+			fileReader.onload = (event) =>
+			{
+				var fileEntriesJsJoined =
+					new FileHelper().tarFileAsBinaryStringToJavaScriptText(event.target.result);
+				textareaCode.value = fileEntriesJsJoined;
+				calculator.codeToFindCoverageFor = fileEntriesJsJoined;
+			};
+			fileReader.readAsBinaryString(file);
+		}
+		else
+		{
+			fileReader.onload = (event) =>
+			{
+				var fileContentsAsText = event.target.result;
+				textareaCode.value = fileContentsAsText;
+				calculator.codeToFindCoverageFor = fileContentsAsText;
+			};
+			fileReader.readAsText(file);
+		}
 	}
 }
 
@@ -119,15 +163,46 @@ function inputTestFile_Changed(inputCodeFile)
 	if (file != null)
 	{
 		var fileReader = new FileReader();
-		fileReader.onload = (event) =>
+		var d = document;
+		var textareaTests = d.getElementById("textareaTests");
+		var calculator = Session.Instance.testCoverageCalculator;
+
+		var fileName = file.name;
+
+		if (fileName.endsWith(".tar") )
 		{
-			var fileContentsAsText = event.target.result;
-			var d = document;
-			var textareaCodeForTests = d.getElementById("textareaCodeForTests");
-			textareaCodeForTests.value = fileContentsAsText;
-		};
-		fileReader.readAsText(file);
+			fileReader.onload = (event) =>
+			{
+				var fileEntriesJsJoined =
+					new FileHelper().tarFileAsBinaryStringToJavaScriptText(event.target.result);
+				textareaTests.value = fileEntriesJsJoined;
+				calculator.testCodeToRun = fileEntriesJsJoined;
+			};
+			fileReader.readAsBinaryString(file);
+		}
+		else
+		{
+			fileReader.onload = (event) =>
+			{
+				var fileContentsAsText = event.target.result;
+				textareaTests.value = fileContentsAsText;
+				calculator.testCodeToRun = fileContentsAsText;
+			};
+			fileReader.readAsText(file);
+		}
 	}
+}
+
+function textareaCode_Changed(textareaCode)
+{
+	var calculator = Session.Instance.testCoverageCalculator;
+	calculator.codeToFindCoverageFor = textareaCode.value;
+}
+
+function textareaTests_Changed(textareaTests)
+{
+	var calculator = Session.Instance.testCoverageCalculator;
+	calculator.testCodeToRun = textareaTests.value;
 }
 
 </script>

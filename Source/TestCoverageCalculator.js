@@ -17,28 +17,59 @@ class TestCoverageCalculator
 		var codeAsLines = this.codeToFindCoverageFor.split(newline);
 		this.coverageCallCount = 0;
 		var codeLinesPlusCoverageCalls = [];
+		var codeLinesSinceLastStatement = [];
 
 		for (var i = 0; i < codeAsLines.length; i++)
 		{
 			var codeLine = codeAsLines[i];
-			var isLineInFunction = codeLine.startsWith("\t\t");
-			if (isLineInFunction)
+
+			var codeLineTrimmed = codeLine.trim();
+			if (codeLineTrimmed == "")
 			{
-				var codeLineTrimmed = codeLine.trim();
-				if (codeLine.startsWith("{"))
+				codeLinesPlusCoverageCalls.push(codeLine);
+			}
+			else if (codeLine.startsWith("\t\t"))
+			{
+				// It's deeply indented enough to be in a function,
+				// according to our somewhat arbitrary code standard.
+
+				var lineCommentSymbol = "//";
+				var indexOfLineCommentSymbol = codeLine.indexOf(lineCommentSymbol);
+				if (indexOfLineCommentSymbol >= 0)
 				{
-					// Skip.
+					// todo - Make sure it's not in quotes.
+					codeLineTrimmed = codeLineTrimmed.substr
+					(
+						0, indexOfLineCommentSymbol - lineCommentSymbol.length
+					);
+					codeLineTrimmed = codeLineTrimmed.trim();
 				}
-				else
+
+				if (codeLineTrimmed != "")
 				{
-					var coverageStatement =
-						"lineNumbersCovered.set(" + i + "," + i + ")";
-					codeLinesPlusCoverageCalls.push(coverageStatement);
-					this.coverageCallCount++;
+					codeLinesSinceLastStatement.push(codeLine);
+
+					if (codeLineTrimmed.endsWith(";") || codeLineTrimmed.endsWith("{"))
+					{
+
+						var iMinusLinesInStatement =
+							i - codeLinesSinceLastStatement.length + 1;
+						var coverageStatement =
+							"lineNumbersCovered.set("
+							+ iMinusLinesInStatement + ","
+							+ iMinusLinesInStatement + ")";
+						this.coverageCallCount++;
+						codeLinesPlusCoverageCalls.push(coverageStatement);
+						codeLinesPlusCoverageCalls.push(...codeLinesSinceLastStatement);
+						codeLinesSinceLastStatement.length = 0;
+					}
 				}
 			}
+			else
+			{
+				codeLinesPlusCoverageCalls.push(codeLine);
+			}
 
-			codeLinesPlusCoverageCalls.push(codeLine);
 		}
 
 		var codeWithCoverageCalls = codeLinesPlusCoverageCalls.join(newline);
@@ -58,11 +89,15 @@ class TestCoverageCalculator
 
 	coverageToStringSummary()
 	{
+		var linesCoveredCount = this.lineNumbersCovered.size;
+		var coverageAsPercentage = Math.floor(linesCoveredCount / this.coverageCallCount * 100);
 		var returnValue =
 			"Lines covered: "
-			+ this.lineNumbersCovered.size
+			+ linesCoveredCount
 			+ "/"
-			+ this.coverageCallCount;
+			+ this.coverageCallCount
+			+ " = "
+			+ coverageAsPercentage + "%";
 		return returnValue;
 	}
 
